@@ -1,0 +1,13 @@
+{
+  "n": 300,
+  "repeat": 500,
+  "semfw_ns_p50": 800,
+  "semfw_ns_mean": 841.92,
+  "l3_ns_p50": 19,
+  "l3_ns_mean": 20.49,
+  "ratio_semfw_over_l3_p50": 42.132,
+  "implied_mpps_semfw_p50": 1.249,
+  "implied_mpps_l3_p50": 52.632,
+  "mode": "BPF_PROG_TEST_RUN sample of 300 packets x 500 repeats on local box kernel 6.12",
+  "note": "implied Mpps = 1000/ns_p50 from program duration; NOT wire rate. native-NIC Mpps unverified. The 50% of L3-baseline Mpps threshold is NOT claimed: program-ns ratio is ~42x because semantic parse >> IP lookup."
+}

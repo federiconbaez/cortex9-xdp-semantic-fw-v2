@@ -1,0 +1,50 @@
+{
+  "n_attack": 1000,
+  "n_legit": 10000,
+  "tp": 1000,
+  "fn": 0,
+  "fp": 0,
+  "tn": 10000,
+  "tpr": 1.0,
+  "fpr": 0.0,
+  "threshold_tpr": 0.9,
+  "threshold_fpr": 0.01,
+  "pass_tpr": true,
+  "pass_fpr": true,
+  "pass": true,
+  "by_kind": {
+    "dns": {
+      "n": 4000,
+      "drop": 0
+    },
+    "sni": {
+      "n": 4000,
+      "drop": 0
+    },
+    "http": {
+      "n": 2000,
+      "drop": 0
+    },
+    "dns-tunnel": {
+      "n": 400,
+      "drop": 400
+    },
+    "sni-deny": {
+      "n": 400,
+      "drop": 400
+    },
+    "http-deny": {
+      "n": 200,
+      "drop": 200
+    }
+  },
+  "baseline": {
+    "tp": 600,
+    "fn": 400,
+    "fp": 0,
+    "tn": 10000,
+    "tpr": 0.6,
+    "fpr": 0.0,
+    "note": "nftables string --icase (emulated offline when xt_string unavailable)"
+  }
+}

@@ -1,0 +1,3 @@
+denylist: 200 entries
+OK attached xdp_semfw on c9ci0 (xdpgeneric)
+ci-xdp: attach OK

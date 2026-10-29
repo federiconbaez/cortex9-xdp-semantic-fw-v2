@@ -1,0 +1,7 @@
+{
+  "mode": "xdpgeneric/veth",
+  "n_packets": 11000,
+  "wall_ns": 69413723,
+  "pps_lower_bound": 158470.11,
+  "note": "wall-clock send rate on veth SKB mode; includes AF_PACKET send path. native-NIC Mpps unverified. Not comparable 1:1 to L3 baseline Mpps."
+}
