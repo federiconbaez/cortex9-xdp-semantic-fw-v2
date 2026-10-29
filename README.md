@@ -104,6 +104,9 @@ any `BPF_PROG_TEST_RUN` measurement. The measurement commit is
    `notevil.com` never matches a rule for `evil.com`.
 3. **Loud failure.** CI loads XDP with `sudo` on `ubuntu-latest` and
    **exits non-zero** if load/attach fails. No silent skip.
+   The following TPR/FPR eval step prints whether thresholds were met
+   but does **not** fail the job on a miss (`|| true` in the workflow):
+   honesty over a forced green; the numbers stay in the artifact and this README.
 
 ## Build & measure
 
