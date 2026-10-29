@@ -30,6 +30,57 @@ http-deny 200/200; all 10000 legit kinds 0 drops. Raw files:
 `results/verdicts.csv`, `results/baseline.csv`,
 `results/summary.json`.
 
+### Adversarial reading of the 100 % TPR
+
+**The 100 % TPR is by construction, not a claim about detecting unknown
+threats.** Read it that way:
+
+- **600 of 1000 attacks** put a domain from `data/denylist.txt` in the
+  SNI or `Host` field. The program drops when that exact name (or a
+  label-aligned suffix) is in the BPF map. Catching them proves the
+  parser finds the name at a *real* offset (SNI past byte 1294 of L4
+  with an X25519MLKEM768 key_share first; `Host` past byte 422) and
+  that label-boundary matching does not invent substring hits — it
+  does **not** prove the denylist knows about tomorrow's phishing
+  domain.
+- **400 of 1000 attacks** are DNS queries whose QNAME was *generated*
+  to trip the pre-registered tunnelling heuristic (`TUN_LABEL=50`,
+  `TUN_TOTAL=150` in `bpf/fw_common.h`): one base32 label of length 60
+  and a total QNAME ≥ 160. The generator and the thresholds were
+  written together on purpose. Catching them proves the heuristic
+  fires when those constants say it should — it does **not** prove
+  those cut-offs separate real tunnels from real long-but-legit names
+  on the public Internet.
+
+What this measurement *does* show, and what v1 could not:
+
+1. Correct parsing of DNS QNAME / TLS SNI / HTTP Host at offsets past
+   the old 192-byte window.
+2. Label-boundary denylist matching with **0** substring false
+   positives on 10000 Tranco-derived legit flows (FPR 0 %).
+3. The nftables `string --icase` control still misses all 400 tunnel
+   queries (TPR 60 %), so the structured path is doing work the
+   baseline cannot.
+
+#### How `TUN_LABEL` / `TUN_TOTAL` were chosen
+
+They are **engineering defaults**, not fitted to a labelled tunnel
+corpus:
+
+- DNS labels are at most 63 octets (RFC 1035). Lengths ≥ 50 leave
+  little room for anything but encoded payload in a single label —
+  a common shape in DNS-tunnel tools — without yet forbidding every
+  long-but-legit label.
+- A whole QNAME ≥ 150 octets is well above typical interactive names
+  and below the 255-octet absolute maximum, so it is a coarse “this
+  name is carrying bulk data” tripwire.
+
+They were **fixed in commit `c9674cb`** (the first commit of this
+repo: `docs/PREREGISTRO.md`, `bpf/fw_common.h`, and the corpus
+generator that emits labels of length 60 / total ≥ 160) **before**
+any `BPF_PROG_TEST_RUN` measurement. The measurement commit is
+`fd01f4be`. The constants were not tuned afterwards.
+
 ### Throughput (honest)
 
 | What | Number | Notes |
