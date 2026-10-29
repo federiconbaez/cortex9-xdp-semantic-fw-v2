@@ -1,0 +1,6 @@
+seed=20261029
+n_legit=10000
+n_attack=1000
+corpus.pcap sha256=5c2eb4597b7547fd3f4cbedde89c29884c1da1059f24488afb2f946b4846d87c
+labels.csv sha256=681fd7cd3bed73f737c82eae4e0515aabb137804093bae615a9b7349cbf9a861
+generator=harness/gen_corpus.py

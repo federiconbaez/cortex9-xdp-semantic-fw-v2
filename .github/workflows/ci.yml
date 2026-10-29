@@ -1,0 +1,101 @@
+name: ci
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+jobs:
+  unit:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: apt
+        run: sudo apt-get update -qq && sudo DEBIAN_FRONTEND=noninteractive apt-get install -y -qq clang llvm libelf-dev libbpf-dev
+      - name: build
+        run: make all
+      - name: unit tests
+        run: make test
+
+  xdp:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: apt
+        run: sudo apt-get update -qq && sudo DEBIAN_FRONTEND=noninteractive apt-get install -y -qq clang llvm libelf-dev libbpf-dev iproute2
+      - name: build
+        run: make all
+      - name: load+attach (FAILS LOUDLY if XDP cannot run)
+        run: sudo make ci-xdp
+      - name: measure (real bytecode via BPF_PROG_TEST_RUN)
+        run: |
+          set -euo pipefail
+          sudo -E ./bin/measure verdicts bpf/fw.bpf.o data/denylist.txt corpus/corpus.pcap \
+            | tee results/verdicts.csv
+          python3 harness/baseline_string.py --pcap corpus/corpus.pcap --deny data/denylist.txt \
+            -o results/baseline.csv
+          # eval prints the numbers; do NOT fail the job on a missed threshold —
+          # honesty over green. The README states the outcome.
+          python3 harness/eval.py results/verdicts.csv --baseline results/baseline.csv \
+            --out results/summary.json || true
+          sudo -E ./bin/measure bench bpf/fw.bpf.o data/denylist.txt corpus/corpus.pcap 1000 10.0.0.1 \
+            > results/bench.csv
+          python3 - <<'PY'
+          import csv, statistics, json, pathlib
+          rows=list(csv.DictReader(open("results/bench.csv")))
+          sem=[int(r["semfw_ns"]) for r in rows]
+          l3=[int(r["l3_ns"]) for r in rows]
+          out={
+            "n": len(rows),
+            "semfw_ns_p50": statistics.median(sem),
+            "semfw_ns_mean": sum(sem)/len(sem),
+            "l3_ns_p50": statistics.median(l3),
+            "l3_ns_mean": sum(l3)/len(l3),
+            "ratio_semfw_over_l3_p50": (statistics.median(sem)/statistics.median(l3)) if statistics.median(l3) else None,
+            "mode": "BPF_PROG_TEST_RUN on ubuntu-latest (not native NIC)",
+            "note": "native-NIC Mpps unverified",
+          }
+          pathlib.Path("results/bench-summary.json").write_text(json.dumps(out, indent=2)+"\n")
+          print(json.dumps(out, indent=2))
+          PY
+      - name: veth wall-clock lower bound
+        run: |
+          set -euo pipefail
+          NS=c9sfw$$; V0=c9a$$; V1=c9b$$
+          cleanup() { ip netns del "$NS" 2>/dev/null || true; ip link del "$V0" 2>/dev/null || true; }
+          trap cleanup EXIT
+          sudo ip link add "$V0" type veth peer name "$V1"
+          sudo ip netns add "$NS"
+          sudo ip link set "$V1" netns "$NS"
+          sudo ip addr add 10.67.0.1/30 dev "$V0"
+          sudo ip netns exec "$NS" ip addr add 10.67.0.2/30 dev "$V1"
+          sudo ip link set "$V0" up
+          sudo ip netns exec "$NS" ip link set "$V1" up
+          # attach
+          sudo ./bin/loader bpf/fw.bpf.o data/denylist.txt "$V0" &
+          LPID=$!
+          sleep 0.4
+          if ! kill -0 $LPID 2>/dev/null; then echo "FATAL: loader died"; exit 2; fi
+          START=$(date +%s%N)
+          sudo ip netns exec "$NS" ./bin/pcap_send corpus/corpus.pcap "$V1"
+          END=$(date +%s%N)
+          sudo kill -INT $LPID || true
+          wait $LPID 2>/dev/null || true
+          python3 - <<PY
+          import json, pathlib
+          n=11000
+          ns=$END-$START
+          pathlib.Path("results/veth-bench.json").write_text(json.dumps({
+            "mode":"xdpgeneric/veth",
+            "n_packets":n,
+            "wall_ns":ns,
+            "pps_lower_bound": round(n/(ns/1e9),2) if ns else 0,
+            "note":"wall-clock send rate on veth SKB mode; native-NIC Mpps unverified",
+          }, indent=2)+"\n")
+          print(open("results/veth-bench.json").read())
+          PY
+      - name: upload results
+        uses: actions/upload-artifact@v4
+        with:
+          name: results
+          path: results/

@@ -1,0 +1,9 @@
+target/
+*.o
+__pycache__/
+data/top-1m.csv
+data/tranco.zip
+bin/
+/measure
+/loader
+/vethdrop
